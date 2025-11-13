@@ -15,8 +15,11 @@ func SeedQuestions() error {
 			Order:        1,
 			Category:     "sociality",
 			Options: []models.Option{
-				{OptionText: "예", Score: 5, Weight: "sociality"},
-				{OptionText: "아니오", Score: 1, Weight: "intimacy"},
+				{OptionText: "항상 먼저 말을 건다", Score: 5, Weight: "sociality"},
+				{OptionText: "자주 먼저 말을 거는 편이다", Score: 4, Weight: "sociality"},
+				{OptionText: "상황에 따라 다르다", Score: 3, Weight: "flexibility"},
+				{OptionText: "거의 말을 걸지 않는다", Score: 2, Weight: "intimacy"},
+				{OptionText: "전혀 먼저 말을 걸지 않는다", Score: 1, Weight: "intimacy"},
 			},
 		},
 		{
@@ -24,8 +27,11 @@ func SeedQuestions() error {
 			Order:        2,
 			Category:     "sociality",
 			Options: []models.Option{
-				{OptionText: "예", Score: 1, Weight: "intimacy"},
-				{OptionText: "아니오", Score: 5, Weight: "sociality"},
+				{OptionText: "항상 소규모 모임을 선호한다", Score: 1, Weight: "intimacy"},
+				{OptionText: "대체로 소규모 모임을 선호한다", Score: 2, Weight: "intimacy"},
+				{OptionText: "상황에 따라 다르다", Score: 3, Weight: "flexibility"},
+				{OptionText: "큰 모임이 더 좋다", Score: 4, Weight: "sociality"},
+				{OptionText: "큰 모임을 매우 선호한다", Score: 5, Weight: "sociality"},
 			},
 		},
 		{

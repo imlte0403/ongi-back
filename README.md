@@ -200,6 +200,11 @@ curl http://localhost:3000/api/v1/results/1
 }
 ```
 
+- /users/:id/auto-match (현재 보고 있는 것): 특정 사용자 1명만 랜덤으로 1~5개 클럽에 가입
+- /clubs/match-users (handlers/user.go:258-282): 모든 사용자들을 그룹화해서 클럽에 매칭
+  . POST /users/:id/auto-match-group (신규): 본인 + 유사한 사람 2-4명을 함께 1-3개 클럽에 가입
+
+
 ## 성향 분석 기준
 
 ### 점수 카테고리

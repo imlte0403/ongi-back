@@ -178,3 +178,208 @@ func GetRecommendedMeetings(userID uint, limit int) ([]models.Meeting, error) {
 
 	return meetings, nil
 }
+
+type UserGroup struct {
+	Users      []models.User
+	AvgProfile models.UserProfile
+}
+
+// 비슷한 성향의 사용자들을 그룹화하고 적합한 클럽에 매칭
+func MatchUsersToClubs() error {
+	// 1. 프로필이 있는 모든 사용자 가져오기
+	var profiles []models.UserProfile
+	err := database.DB.Preload("User").Find(&profiles).Error
+	if err != nil {
+		return err
+	}
+
+	if len(profiles) == 0 {
+		return nil
+	}
+
+	// 2. 사용자들을 유사도 기반으로 그룹화
+	groups := groupSimilarUsers(profiles, 70.0) // 70% 이상 유사도
+
+	// 3. 각 그룹에 적합한 클럽 찾기
+	var clubs []models.Club
+	err = database.DB.Preload("Members").Find(&clubs).Error
+	if err != nil {
+		return err
+	}
+
+	// 4. 각 그룹을 클럽에 매칭
+	for _, group := range groups {
+		if len(group.Users) == 0 {
+			continue
+		}
+
+		// 그룹의 평균 성향과 가장 잘 맞는 클럽 찾기
+		bestClub := findBestClubForGroup(group, clubs)
+		if bestClub == nil {
+			continue
+		}
+
+		// 그룹의 모든 사용자를 해당 클럽에 추가
+		addedCount := 0
+		for _, user := range group.Users {
+			// 이미 가입했는지 확인
+			var existingMember models.ClubMember
+			err := database.DB.Where("club_id = ? AND user_id = ?", bestClub.ID, user.ID).
+				First(&existingMember).Error
+
+			if err != nil { // 가입하지 않은 경우만 추가
+				member := models.ClubMember{
+					ClubID: bestClub.ID,
+					UserID: user.ID,
+				}
+				database.DB.Create(&member)
+				addedCount++
+			}
+		}
+
+		// 실제 추가된 멤버 수만큼 증가
+		if addedCount > 0 {
+			database.DB.Model(&models.Club{}).
+				Where("id = ?", bestClub.ID).
+				Update("member_count", database.DB.Raw("member_count + ?", addedCount))
+		}
+	}
+
+	return nil
+}
+
+// 유사한 사용자들을 그룹화
+func groupSimilarUsers(profiles []models.UserProfile, threshold float64) []UserGroup {
+	var groups []UserGroup
+	used := make(map[uint]bool)
+
+	for i, profile1 := range profiles {
+		if used[profile1.UserID] {
+			continue
+		}
+
+		// 새 그룹 생성
+		group := UserGroup{
+			Users: []models.User{profile1.User},
+		}
+		used[profile1.UserID] = true
+
+		// 유사한 사용자들 찾기
+		for j, profile2 := range profiles {
+			if i == j || used[profile2.UserID] {
+				continue
+			}
+
+			similarity := calculateSimilarity(&profile1, &profile2)
+			if similarity >= threshold {
+				group.Users = append(group.Users, profile2.User)
+				used[profile2.UserID] = true
+			}
+		}
+
+		// 그룹의 평균 프로필 계산
+		group.AvgProfile = calculateGroupAverage(profiles, group.Users)
+		groups = append(groups, group)
+	}
+
+	return groups
+}
+
+// 그룹의 평균 성향 계산
+func calculateGroupAverage(allProfiles []models.UserProfile, groupUsers []models.User) models.UserProfile {
+	var sumSociality, sumActivity, sumIntimacy, sumImmersion, sumFlexibility float64
+	count := 0
+
+	userIDMap := make(map[uint]bool)
+	for _, user := range groupUsers {
+		userIDMap[user.ID] = true
+	}
+
+	for _, profile := range allProfiles {
+		if userIDMap[profile.UserID] {
+			sumSociality += profile.SocialityScore
+			sumActivity += profile.ActivityScore
+			sumIntimacy += profile.IntimacyScore
+			sumImmersion += profile.ImmersionScore
+			sumFlexibility += profile.FlexibilityScore
+			count++
+		}
+	}
+
+	if count == 0 {
+		return models.UserProfile{}
+	}
+
+	return models.UserProfile{
+		SocialityScore:   sumSociality / float64(count),
+		ActivityScore:    sumActivity / float64(count),
+		IntimacyScore:    sumIntimacy / float64(count),
+		ImmersionScore:   sumImmersion / float64(count),
+		FlexibilityScore: sumFlexibility / float64(count),
+	}
+}
+
+// 그룹에 가장 적합한 클럽 찾기
+func findBestClubForGroup(group UserGroup, clubs []models.Club) *models.Club {
+	if len(clubs) == 0 {
+		return nil
+	}
+
+	var bestClub *models.Club
+	bestScore := -1.0
+
+	for i := range clubs {
+		club := &clubs[i]
+
+		// 멤버 수 체크 (그룹 전체가 들어갈 수 있는지)
+		if club.MaxMembers > 0 && club.MemberCount+len(group.Users) > club.MaxMembers {
+			continue
+		}
+
+		// 클럽의 선호 성향과 그룹 평균 성향의 유사도 계산
+		score := calculateClubMatchScore(group.AvgProfile, club)
+
+		if score > bestScore {
+			bestScore = score
+			bestClub = club
+		}
+	}
+
+	return bestClub
+}
+
+// 클럽과 그룹의 매칭 점수 계산
+func calculateClubMatchScore(avgProfile models.UserProfile, club *models.Club) float64 {
+	// Vibe에 따른 성향 매칭
+	score := 0.0
+
+	switch club.Vibe {
+	case "energetic":
+		score += avgProfile.SocialityScore * 0.3
+		score += avgProfile.ActivityScore * 0.4
+		score += avgProfile.FlexibilityScore * 0.3
+	case "cozy":
+		score += avgProfile.IntimacyScore * 0.4
+		score += avgProfile.ImmersionScore * 0.3
+		score += (100 - avgProfile.ActivityScore) * 0.3
+	case "deep":
+		score += avgProfile.ImmersionScore * 0.5
+		score += avgProfile.IntimacyScore * 0.3
+		score += avgProfile.FlexibilityScore * 0.2
+	case "casual":
+		score += avgProfile.FlexibilityScore * 0.4
+		score += avgProfile.SocialityScore * 0.3
+		score += avgProfile.ActivityScore * 0.3
+	case "chill":
+		score += (100 - avgProfile.ActivityScore) * 0.4
+		score += avgProfile.FlexibilityScore * 0.3
+		score += avgProfile.IntimacyScore * 0.3
+	default:
+		// 균형잡힌 점수
+		score = (avgProfile.SocialityScore + avgProfile.ActivityScore +
+			avgProfile.IntimacyScore + avgProfile.ImmersionScore +
+			avgProfile.FlexibilityScore) / 5.0
+	}
+
+	return score
+}

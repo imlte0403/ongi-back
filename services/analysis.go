@@ -142,10 +142,43 @@ func GetCompleteAnalysis(userID uint) (*AnalysisResult, error) {
 	profileType := DetermineProfileType(scores)
 	descriptions := GenerateDescriptions(scores)
 
+	// 클럽 추천 (성향 기반)
+	suggestedClubs, _ := GetRecommendedClubs(userID, 10)
+
+	// 유사 멤버 기반 클럽 추천
+	similarClubs, _ := GetClubsWithSimilarMembers(userID, 5)
+
+	// 중복 제거하면서 결합
+	clubMap := make(map[uint]models.Club)
+	for _, club := range suggestedClubs {
+		clubMap[club.ID] = club
+	}
+	for _, club := range similarClubs {
+		clubMap[club.ID] = club
+	}
+
+	allClubs := make([]models.Club, 0, len(clubMap))
+	for _, club := range clubMap {
+		allClubs = append(allClubs, club)
+	}
+
+	// 모임 추천
+	suggestedMeetings, _ := GetRecommendedMeetings(userID, 10)
+
+	// 유사 사용자 추천
+	similarUsers, _ := GetSimilarUsers(userID, 10)
+	users := make([]models.User, len(similarUsers))
+	for i, sim := range similarUsers {
+		users[i] = sim.User
+	}
+
 	result := &AnalysisResult{
-		Scores:       *scores,
-		ProfileType:  profileType,
-		Descriptions: descriptions,
+		Scores:            *scores,
+		ProfileType:       profileType,
+		Descriptions:      descriptions,
+		SuggestedClubs:    allClubs,
+		SuggestedMeetings: suggestedMeetings,
+		SimilarUsers:      users,
 	}
 
 	return result, nil

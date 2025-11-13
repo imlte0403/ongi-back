@@ -3,15 +3,21 @@ package models
 import "time"
 
 type Club struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Name        string    `json:"name" gorm:"not null"`
-	Description string    `json:"description" gorm:"type:text"`
-	Category    string    `json:"category"`     // 클럽 카테고리 (운동, 문화, 학습 등)
-	ImageURL    string    `json:"image_url"`
-	MemberCount int       `json:"member_count"` // 멤버 수
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Members     []ClubMember `json:"members" gorm:"foreignKey:ClubID"`
+	ID               uint         `json:"id" gorm:"primaryKey"`
+	Name             string       `json:"name" gorm:"not null"`
+	Description      string       `json:"description" gorm:"type:text"`
+	Category         string       `json:"category"`         // 클럽 카테고리 (운동, 문화, 학습 등)
+	Vibe             string       `json:"vibe"`             // cozy, energetic, casual, deep, chill
+	MeetingFrequency string       `json:"meeting_frequency"`// 주 1회, 격주, 월 1회
+	Location         string       `json:"location"`         // 강남, 홍대, 신촌 등
+	ImageURL         string       `json:"image_url"`
+	MemberCount      int          `json:"member_count"`     // 현재 멤버 수
+	MaxMembers       int          `json:"max_members"`      // 최대 멤버 수
+	Tags             string       `json:"tags" gorm:"type:text"` // JSON 배열 형태로 저장
+	PreferredScores  string       `json:"preferred_scores" gorm:"type:text"` // 선호 성향 점수 (JSON)
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
+	Members          []ClubMember `json:"members" gorm:"foreignKey:ClubID"`
 }
 
 type ClubMember struct {

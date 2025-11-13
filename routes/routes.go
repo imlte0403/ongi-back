@@ -24,6 +24,11 @@ func Setup(app *fiber.App) {
 	users.Post("/", handlers.CreateUser)
 	users.Get("/:id", handlers.GetUser)
 	users.Get("/:id/profile", handlers.GetUserProfile)
+	users.Post("/:id/auto-match", handlers.AutoMatchClubs)
+	users.Post("/:id/auto-match-group", handlers.AutoMatchWithSimilarUsers)
+
+	// Matching routes - 전체 사용자 그룹 매칭
+	api.Post("/match-all", handlers.MatchAllUsersToClubs)
 
 	// Question routes
 	questions := api.Group("/questions")
